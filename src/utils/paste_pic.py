@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 import uuid
 
-from src.utils.videoio import save_video_with_watermark 
+from src.utils.videoio import save_video
 
 def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, extended_crop=False):
 
@@ -65,5 +65,5 @@ def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, 
 
     out_tmp.release()
 
-    save_video_with_watermark(tmp_path, new_audio_path, full_video_path, watermark=False)
+    save_video(tmp_path, new_audio_path, full_video_path, watermark=False)
     os.remove(tmp_path)

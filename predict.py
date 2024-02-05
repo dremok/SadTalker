@@ -2,13 +2,16 @@
 import os
 import shutil
 from argparse import Namespace
-from src.utils.preprocess import CropAndExtract
-from src.test_audio2coeff import Audio2Coeff
-from src.facerender.animate import AnimateFromCoeff
-from src.generate_batch import get_data
-from src.generate_facerender_batch import get_facerender_data
-from src.utils.init_path import init_path
+from typing import Optional
+
 from cog import BasePredictor, Input, Path
+
+from facerender.animate import AnimateFromCoeff
+from generate_batch import get_data
+from generate_facerender_batch import get_facerender_data
+from test_audio2coeff import Audio2Coeff
+from utils.init_path import init_path
+from utils.preprocess import CropAndExtract
 
 checkpoints = "checkpoints"
 
@@ -18,12 +21,11 @@ class Predictor(BasePredictor):
         """Load the model into memory to make running multiple predictions efficient"""
         device = "cuda"
 
-        
-        sadtalker_paths = init_path(checkpoints,os.path.join("src","config"))
+        sadtalker_paths = init_path(checkpoints, os.path.join("", "src/config"))
 
         # init model
         self.preprocess_model = CropAndExtract(sadtalker_paths, device
-        )
+                                               )
 
         self.audio_to_coeff = Audio2Coeff(
             sadtalker_paths,
@@ -42,36 +44,36 @@ class Predictor(BasePredictor):
         }
 
     def predict(
-        self,
-        source_image: Path = Input(
-            description="Upload the source image, it can be video.mp4 or picture.png",
-        ),
-        driven_audio: Path = Input(
-            description="Upload the driven audio, accepts .wav and .mp4 file",
-        ),
-        enhancer: str = Input(
-            description="Choose a face enhancer",
-            choices=["gfpgan", "RestoreFormer"],
-            default="gfpgan",
-        ),
-        preprocess: str = Input(
-            description="how to preprocess the images",
-            choices=["crop", "resize", "full"],
-            default="full",
-        ),
-        ref_eyeblink: Path = Input(
-            description="path to reference video providing eye blinking",
-            default=None,
-        ),
-        ref_pose: Path = Input(
-            description="path to reference video providing pose",
-            default=None,
-        ),
-        still: bool = Input(
-            description="can crop back to the original videos for the full body aniamtion when preprocess is full",
-            default=True,
-        ),
-    ) -> Path:
+            self,
+            source_image: Path = Input(
+                description="Upload the source image, it can be video.mp4 or picture.png",
+            ),
+            driven_audio: Path = Input(
+                description="Upload the driven audio, accepts .wav and .mp4 file",
+            ),
+            enhancer: Optional[str] = Input(
+                description="Choose a face enhancer",
+                choices=["gfpgan", "RestoreFormer"],
+                default="gfpgan",
+            ),
+            preprocess: Optional[str] = Input(
+                description="how to preprocess the images",
+                choices=["crop", "resize", "full"],
+                default="full",
+            ),
+            ref_eyeblink: Optional[Path] = Input(
+                description="path to reference video providing eye blinking",
+                default=None,
+            ),
+            ref_pose: Optional[Path] = Input(
+                description="path to reference video providing pose",
+                default=None,
+            ),
+            still: bool = Input(
+                description="can crop back to the original videos for the full body aniamtion when preprocess is full",
+                default=True,
+            ),
+    ) -> str:
         """Run a single prediction on the model"""
 
         animate_from_coeff = (
@@ -157,16 +159,12 @@ class Predictor(BasePredictor):
             still_mode=still,
             preprocess=preprocess,
         )
-        animate_from_coeff.generate(
+        output_path = animate_from_coeff.generate(
             data, results_dir, args.pic_path, crop_info,
             enhancer=enhancer, background_enhancer=args.background_enhancer,
             preprocess=preprocess)
 
-        output = "/tmp/out.mp4"
-        mp4_path = os.path.join(results_dir, [f for f in os.listdir(results_dir) if "enhanced.mp4" in f][0])
-        shutil.copy(mp4_path, output)
-
-        return Path(output)
+        return output_path
 
 
 def load_default():
