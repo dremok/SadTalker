@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -8,13 +9,14 @@ import requests
 from elevenlabs import set_api_key, generate, Voice
 
 from iris_utils import timeit
-# Read environment variables
 from predict import Predictor
 
 elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
 set_api_key(elevenlabs_api_key)
 
 AUTHORIZATION_HEADER = os.getenv('AUTHORIZATION_HEADER')
+TALKING_FACE_IMG = "image00009.jpeg"
+GENERATED_VIDEO_PATH = "assets/out_video.mp4"
 
 
 @timeit
@@ -44,10 +46,9 @@ def get_access_key(base_url, headers, persona_id):
 @timeit
 def get_message(headers, access_key, message):
     print(message)
-    print(f"access_key={access_key}")
     data = {
         "message": message,
-        "context": ["Always respond briefly, use maximum 5 words in each response."]
+        "context": ["Always respond briefly, use maximum five words in each response."]
     }
     chat_url = f"https://api.irisona.net/v0/chat_sessions/{access_key}/messages"
     response = requests.post(chat_url, headers=headers, json=data, stream=True)
@@ -77,14 +78,20 @@ def generate_audio(message, out_file):
 
 
 @timeit
-def generate_avatar(audio_file, predictor) -> str:
-    return predictor.predict(Path("image00009.jpeg"),
+def generate_avatar(selected_image, audio_file, predictor, enhancer) -> str:
+    image_path = os.path.join("assets", selected_image)
+    return predictor.predict(Path(image_path),
                              Path(audio_file),
-                             enhancer=None,
+                             enhancer=enhancer,
                              preprocess="crop",
                              ref_eyeblink=None,
                              ref_pose=None,
                              still=True)
+
+
+def list_images_in_assets(folder_path="assets"):
+    image_files = [f for f in os.listdir(folder_path) if f.endswith(('.png', '.jpg', '.jpeg', '.JPG'))]
+    return image_files
 
 
 headers = {'Authorization': os.getenv('AUTHORIZATION_HEADER'), 'Accept': 'application/json'}
@@ -96,27 +103,31 @@ persona_id = get_persona_id(base_url, headers, persona_name="Arvidai")
 access_key = get_access_key(base_url, headers, persona_id)
 
 
-def chat_and_generate_video(user_message):
-    """
-    This function takes user input, gets a response from the chatbot,
-    generates audio, and creates an avatar video.
-    """
-
-    # Get chatbot response
+def chat_and_generate_video(user_message, use_enhancer, selected_image):
+    enhancer_option = "gfpgan" if use_enhancer else None
     message = get_message(headers, access_key, user_message)
-
-    # Assuming generate_audio and generate_avatar are adapted to work with your current setup
     audio_file = "output_audio.mp3"
     generate_audio(message, audio_file)
-    video_path = generate_avatar(audio_file, predictor)  # Ensure this returns an MP4 file path
 
-    return video_path
+    video_path = generate_avatar(selected_image, audio_file, predictor, enhancer=enhancer_option)
 
+    if use_enhancer:
+        shutil.copyfile(video_path[:-4] + "_enhanced.mp4", GENERATED_VIDEO_PATH)
+    else:
+        shutil.copyfile(video_path, GENERATED_VIDEO_PATH)
+    return GENERATED_VIDEO_PATH
+
+
+image_options = list_images_in_assets()
 
 iface = gr.Interface(
     fn=chat_and_generate_video,
-    inputs=gr.Textbox(lines=2, placeholder="Enter your message to Arvida..."),
-    outputs=gr.Video(),
+    inputs=[
+        gr.Textbox(lines=2, placeholder="Enter your message to Arvida..."),
+        gr.Checkbox(label="Use Enhancer"),
+        gr.Dropdown(label="Select an Image", choices=image_options)
+    ],
+    outputs=gr.Video(value="assets/idle_video.mp4", width=256, height=256, autoplay=True),
     title="Chat with Arvida",
     description="Enter your message and get a response from Arvida, along with a generated video response.",
 )

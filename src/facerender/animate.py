@@ -158,7 +158,7 @@ class AnimateFromCoeff():
         return checkpoint['epoch']
 
     def generate(self, x, video_save_dir, pic_path, crop_info, enhancer=None, background_enhancer=None,
-                 preprocess='crop', img_size=256):
+                 preprocess='crop', img_size=512):
         source_image = x['source_image'].type(torch.FloatTensor)
         source_semantics = x['source_semantics'].type(torch.FloatTensor)
         target_semantics = x['target_semantics_list'].type(torch.FloatTensor)

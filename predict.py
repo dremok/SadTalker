@@ -157,7 +157,6 @@ class Predictor(BasePredictor):
             args.input_roll,
             expression_scale=args.expression_scale,
             still_mode=still,
-            preprocess=preprocess,
         )
         output_path = animate_from_coeff.generate(
             data, results_dir, args.pic_path, crop_info,
